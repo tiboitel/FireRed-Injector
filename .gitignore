@@ -1,3 +1,6 @@
+# GBA Rom
+gba_rom/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
