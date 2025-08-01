@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "FireRed-Injector"
+version = "0.1.0"
+description = "Modular FireRed dialog extractor and injector with LLM integration"
+authors = ["tiboitel <tiboitel@student.42.fr>"]
+readme = "README.md"
+packages = [{ include = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+llama-cpp-python = "^0.2.72"
+numpy = "^1.26"
+# for reading/writing JSON, file operations, etc.
+# (included in stdlib; just listed for clarity)
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.2"
+mypy = "^1.9"
+ruff = "^0.4"
+types-setuptools = "*"
+types-requests = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
