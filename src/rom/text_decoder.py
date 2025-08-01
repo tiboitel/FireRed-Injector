@@ -1,24 +1,4 @@
-GEN3_TABLE = {
-    0x00: " ", 0xAD: ".", 0xB8: ",", 0xB4: "'", 0x1B: "é",
-    0xAB: "!", 0xAC: "?", 0xB3: '"', 0xB0: "…", 0xB5: "♂", 0xB6: "♀",
-    0xFE: "\n", 0xFB: "\f", 0xFF: ""  # terminator
-}
-
-# A–Z
-for i in range(0xBB, 0xD5):
-    GEN3_TABLE[i] = chr(65 + (i - 0xBB))
-# a–z
-for i in range(0xD5, 0xEF):
-    GEN3_TABLE[i] = chr(97 + (i - 0xD5))
-# 0–9
-for i in range(0xA1, 0xAB):
-    GEN3_TABLE[i] = str(i - 0xA1)
-
-REVERSE_TABLE = {v: k for k, v in GEN3_TABLE.items()}
-REVERSE_TABLE["\n"] = 0xFE
-REVERSE_TABLE["\f"] = 0xFB
-REVERSE_TABLE["{PLAYER}"] = [0xFC, 0x10]
-REVERSE_TABLE["{RIVAL}"] = [0xFC, 0x11]
+from .text_tables import GEN3_TABLE, REVERSE_TABLE
 
 def decode_text(data: bytes) -> str:
     result = []
