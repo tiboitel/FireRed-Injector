@@ -1,5 +1,3 @@
-import json
-from pathlib import Path
 from src.loaders.base import ByteSource
 from src.codecs.base import TextCodec
 

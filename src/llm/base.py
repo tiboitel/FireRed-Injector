@@ -1,8 +1,6 @@
 from abc import abstractmethod
-from typing import Protocol, runtime_checkable
 
-@runtime_checkable
-class LlmClient(Protocol):
+class LlmClient():
     """Protocol for any LLM client implementation."""
 
     @abstractmethod

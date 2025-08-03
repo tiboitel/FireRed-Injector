@@ -43,19 +43,24 @@ def main():
     llm_client = LlamaClient(llm_cfg)
     character =  CharacterCard(
         name="Bug Catcher Timmy",
-        age=10,
+        age=21,
         location="Viridian Forest Entrance",
-        traits=["enthusiastic", "naive", "excitable"],
+        traits=["enthusiastic", "brave", "dumb"],
         motivation="prove Bug-types are the best"
     )
     prompt_builder = PromptBuilder(few_shot="""
         Example:
-        Input: “Gotta catch ’em all!” → Output: “My net’s ready — bugs, show your might!”
-        Input: “I’ll battle any Trainer!” → Output:“Challengers, step up — Bug mastery awaits!”
+        Original: “Gotta catch ’em all!”\nRewrite: “My net’s ready — bugs, show
+        your might!”\n
+        Original: “I’ll battle any Trainer!” → Rewrite: “Challengers, step up — Bug
+        mastery awaits!”\n
         """
     )
     generator = DialogueGenerator(llm_client, character, prompt_builder)
     original = "You can't escape my bug army!"
+    rewrite = ""
+    while len(rewrite) <= 20:
+        rewrite = generator.generate(original)
     logging.info(f"Generated text: {generator.generate(original)}")
     raw_map = extractor.extract()
     save_json(raw_map, extract_cfg.output_path)
