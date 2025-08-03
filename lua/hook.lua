@@ -1,67 +1,116 @@
--- read_true_msgbox_string.lua
--- mGBA 0.10.5 – Dump the unknown "msgbox string" region
+-- hook.lua — encoding & decoding aligned with Gen3TextCodec
 
-local SCRIPT_ENGINE_RAM = 0x03000EB0   -- 0 = game running, 1 = dialog active
-local TARGET_ADDR      = 0x02021D18   -- "String to be displayed in a message box"
-local MAX_LEN          = 255          -- reasonable cap
-local lastState        = 0
-local framesElapsed = 0
+local SCRIPT_ENGINE_RAM = 0x03000EB0
+local TARGET_ADDR      = 0x02021D18
+local MAX_LEN          = 255
+local lastState, framesElapsed = 0, 0
 
-local PUNCT = {
-	[0xAD] = ".", [0xB8] = ",", [0xAB] = "!", [0xAC] = "?",
-	[0xB3] = '"', [0xB0] = "…", [0xFE] = "\n", [0xFB] = "\f",
-	[0xFF] = ""
+-- Build GEN3_TABLE and REVERSE_TABLE just like Python
+local GEN3_TABLE = {
+  [0x00] = " ",
+  [0xAD] = ".",
+  [0xB8] = ",",
+  [0xB4] = "'",
+  [0x1B] = "é",
+  [0xAB] = "!",
+  [0xAC] = "?",
+  [0xB3] = '"',
+  [0xB0] = "…",
+  [0xB5] = "♂",
+  [0xB6] = "♀",
+  [0x0C] = "\t",
+  [0xFE] = "\n",
+  [0xFB] = "\f",
+  [0xFF] = ""
 }
 
-local function read8(a) return emu:read8(a) end
-
-local tbl = {
-	[0x00] = " ", [0x15] = "ß", [0x1B] = "é",
-	[0xA1] = "0", [0xA2] = "1", [0xA3] = "2",
-	[0xA4] = "3", [0xA5] = "4", [0xA6] = "5",
-	[0xA7] = "6", [0xA8] = "7", [0xA9] = "8",
-	[0xAA] = "9", [0xAB] = "!", [0xAE] = "-",
-	[0xAF] = "…", [0xB8] = ",", [0xBA] = "/",
-	[0xF0] = ":", [0xF1] = "Ä", [0xF2] = "Ö",
-	[0xF3] = "Ü", [0xF4] = "♂", [0xF5] = "♀",
-}
-
-local function code_to_ascii(b)
-	if b >= 0xBB and b <= 0xD4 then
-		return string.char(65 + (b - 0xBB))
-	elseif b >= 0xD5 and b <= 0xEE then
-		return string.char(97 + (b - 0xD5))
-	elseif tbl[b] then
-		return tbl[b]
-	elseif b == 0x50 or b == 0xFF then
-		return ""
-	else
-		return "?"
-	end
+-- A–Z
+for b = 0xBB, 0xD4 do
+  GEN3_TABLE[b] = string.char(65 + (b - 0xBB))
+end
+-- a–z
+for b = 0xD5, 0xEE do
+  GEN3_TABLE[b] = string.char(97 + (b - 0xD5))
+end
+-- digits 0–9 at 0xA1–0xAA
+for b = 0xA1, 0xAA do
+  GEN3_TABLE[b] = tostring(b - 0xA1)
 end
 
-local ascii_to_code_map = {
-  [" "] = 0x00, ["!"] = 0xAB, ["'"] = 0xE5, [","] = 0xB4,
-  ["-"] = 0xAE, ["."] = 0xAD, ["/"] = 0xBA, [":"] = 0xF0,
-  ["?"] = 0xAC, ["…"] = 0xAF, ["é"] = 0x1B, ["ß"] = 0x15,
-  ["♂"] = 0xF4, ["♀"] = 0xF5, ["\n"] = 0xFE, ["\f"] = 0xFB,
-  ["0"] = 0xA1, ["1"] = 0xA2, ["2"] = 0xA3, ["3"] = 0xA4,
-  ["4"] = 0xA5, ["5"] = 0xA6, ["6"] = 0xA7, ["7"] = 0xA8,
-  ["8"] = 0xA9, ["9"] = 0xAA, ['"']= 0xB3
-}
+-- REVERSE_TABLE maps characters to codes (or two‑byte sequences for placeholders)
+local REVERSE_TABLE = {}
+for byte, ch in pairs(GEN3_TABLE) do
+  if ch ~= "" then
+    REVERSE_TABLE[ch] = byte
+  end
+end
+-- add control escapes
+REVERSE_TABLE["\n"] = 0xFE
+REVERSE_TABLE["\f"] = 0xFB
+REVERSE_TABLE["\t"] = 0x0C
+REVERSE_TABLE["{PLAYER}"] = {0xFC, 0x10}
+REVERSE_TABLE["{RIVAL}"]  = {0xFC, 0x11}
+
+-- helper functions
+local function read8(addr) return emu:read8(addr) end
+
+local function code_to_ascii(b)
+  local ch = GEN3_TABLE[b]
+  if ch then return ch end
+  return "?"
+end
 
 local function ascii_to_code(c)
-  local b = ascii_to_code_map[c]
-  if b then return b end
+  local r = REVERSE_TABLE[c]
+  if r then return r end
 
   local byte = string.byte(c)
-  if byte >= 65 and byte <= 90 then -- A-Z
+  if byte >= 65 and byte <= 90 then
     return 0xBB + (byte - 65)
-  elseif byte >= 97 and byte <= 122 then -- a-z
+  elseif byte >= 97 and byte <= 122 then
     return 0xD5 + (byte - 97)
   end
+  return 0xAC
+end
 
-  return 0x50 -- fallback: terminator / unknown char
+-- Decode bytes at [addr, addr+maxLen)
+local function readDynamicString(addr, maxLen)
+  local result = {}
+  for i = 0, maxLen - 1 do
+    local b = read8(addr + i)
+    if b == 0x50 or b == 0xFF then break end
+    table.insert(result, code_to_ascii(b))
+  end
+  return table.concat(result)
+end
+
+-- Write text (Unicode-compatible) into dialog buffer
+local function writeDialogMessage(str)
+  local base = TARGET_ADDR
+  -- clear with 0xFF bytes
+  for i = 0, MAX_LEN - 1 do emu:write8(base + i, 0xFF) end
+  if not str then return end
+
+  local i = 1
+  while i <= #str do
+    -- check for placeholders first
+    local sub = str:sub(i, i + 7)
+    if sub == "{PLAYER}" then
+      emu:write8(base, 0xFC); emu:write8(base + 1, 0x10); base = base + 2
+      i = i + 8
+    else
+      sub = str:sub(i, i + 6)
+      if sub == "{RIVAL}" then
+        emu:write8(base, 0xFC); emu:write8(base + 1, 0x11); base = base + 2
+        i = i + 7
+      else
+        local b = ascii_to_code(str:sub(i, i))
+        emu:write8(base, b); base = base + 1; i = i + 1
+      end
+    end
+    if base >= TARGET_ADDR + MAX_LEN - 1 then break end
+  end
+  emu:write8(base, 0xFF)
 end
 
 function sleep(n)
@@ -117,39 +166,31 @@ local function writeDialogMessage(str)
 	emu:write8(base + #str, 0xFF) -- terminator
 end
 
-local function readDynamicString(addr, maxLen)
-	local chars = {}
-	for i = 0, maxLen - 1 do
-		local b = read8(addr + i)
-		if b == 0x50 or b == 0xFF then break end
-		table.insert(chars, code_to_ascii(b))
-	end
-	return table.concat(chars)
-end
-
-
+local msg = ""
 
 local function onFrame()
-	local cur = read8(SCRIPT_ENGINE_RAM)
-	local msg = ""
+  local cur = read8(SCRIPT_ENGINE_RAM)
+  if cur == 1 and lastState == 0 then
+    framesElapsed = 0
+  end
 
-	if cur == 1 and lastState == 1 then
-		framesElapsed = framesElapsed + 1
-	end
-	if cur == 1 and framesElapsed >= 0 then
-		local s = readDynamicString(TARGET_ADDR, MAX_LEN)
-		writeDialogInput(s)	
-		msg = readDialogOutput()
-		if msg ~= nil and#msg > 0 and s ~= msg then
-			writeDialogMessage(msg)
-		end
-		
-	end
-	if cur == 0 and lastState == 1 then
-		clearDialogBuffer()
-		framesElapsed = 0
-	end
-	lastState = cur
+  if cur == 1 and framesElapsed == 2 then
+    local original = readDynamicString(TARGET_ADDR, MAX_LEN)
+    writeDialogInput(original)
+  end
+
+  if cur == 1 then
+    framesElapsed = framesElapsed + 1
+    if msg and msg ~= original then
+      writeDialogMessage(msg)
+    end
+  end
+
+  if cur == 0 and lastState == 1 then
+      msg = readDialogOutput()
+  end
+
+  lastState = cur
 end
 
 callbacks:add("frame", onFrame)

@@ -35,6 +35,21 @@ def write_output(text: str) -> None:
 def clear_output_file() -> None:
     OUTPUT_FILE.write_text("", encoding="utf-8")
 
+def _format_rewrite(s: str) -> str:
+    s = list(s)
+    i = 24
+    toggle = True  # True for \n, False for \t
+    while i < len(s):
+        # Find next whitespace at or after index `i`
+        j = next((j for j in range(i, len(s)) if s[j].isspace()), -1)
+        if j == -1:
+            break
+        s[j] = '\n' if toggle else '\f'
+        toggle = not toggle
+        i = j + 24  # Continue checking after the last replaced character
+    return ''.join(s)
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--rom", type=Path, default=Path("gba_rom/fire_red.gba"))
@@ -69,15 +84,10 @@ def run_ipc_loop(generator: DialogueGenerator):
                 while len(rewrite.strip()) < 5:
                     rewrite = generator.generate(original)
                 logging.info(f"✍️  Rewritten: {rewrite}")
-                format_rewrite = lambda s: (
-                    s if len(s) <= 24 else (
-                        s[:i] + '\t' + s[i+1:] if (i := next((j for j in range(20, len(s)) if s[j].isspace()), -1)) != -1 else s
-                    )
-                )
-                write_output(format_rewrite(rewrite))
+                write_output(_format_rewrite(rewrite))
                 # Clear input to avoid duplication
                 INPUT_FILE.write_text("", encoding="utf-8")
-            time.sleep(0.1)
+                time.sleep(0.1)
     except KeyboardInterrupt:
         logging.info("🚪 IPC mode terminated by user.")
 
@@ -116,10 +126,10 @@ def main():
     else:
         original = "I came here with some friends to catch us some BUG POKéMON!\n"
         rewrite = ""
-        while len(rewrite) <= 20:
+        while len(rewrite) <= 4:
             rewrite = generator.generate(original)
-        logging.info(f"Generated text: {rewrite}")
-        run_extraction(extract_cfg)
+            logging.info(f"Generated text: {rewrite}")
+            run_extraction(extract_cfg)
 
 if __name__ == "__main__":
     main()
