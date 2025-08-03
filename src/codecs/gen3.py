@@ -7,7 +7,8 @@ class Gen3TextCodec(TextCodec):
         while i < len(data):
             b = data[i]
 
-            if b == 0xFF: break
+            if b == 0xFF:
+                break
             elif b == 0xFB:
                 result.append("\f")
                 break

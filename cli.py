@@ -49,15 +49,15 @@ def main():
     )
     prompt_builder = PromptBuilder(few_shot="""
         Example:
-        “Gotta catch ’em all!” → “My net’s ready — bugs, show your might!”
-        “I’ll battle any Trainer!” → “Challengers, step up — Bug mastery awaits!”
+        Input: “Gotta catch ’em all!” → Output: “My net’s ready — bugs, show your might!”
+        Input: “I’ll battle any Trainer!” → Output:“Challengers, step up — Bug mastery awaits!”
         """
     )
-    generator = DialogueGenerator(llm, character, prompt_builder)
+    generator = DialogueGenerator(llm_client, character, prompt_builder)
     original = "You can't escape my bug army!"
     logging.info(f"Generated text: {generator.generate(original)}")
     raw_map = extractor.extract()
-    extractor.save(raw_mapp, extract_cfg.output_path)
+    extractor.save(raw_map, extract_cfg.output_path)
     logging.info(f"All dialogs saved to {extract_cfg.output_path}")
 
 if __name__ == "__main__":

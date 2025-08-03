@@ -12,7 +12,7 @@ class ExtractConfig:
 class LlmConfig:
     model_path: Path
     n_ctx: int = 4096
-    temperature: float = 0.9
+    temperature: float = 0.8
     top_k: int = 50
     top_p: float = 0.92
-    repeat_penalty: float = 1.2
+    repeat_penalty: float = 1.1

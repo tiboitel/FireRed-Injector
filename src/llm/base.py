@@ -1,6 +1,4 @@
-# injector/llm/base.py
-
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Protocol, runtime_checkable
 
 @runtime_checkable

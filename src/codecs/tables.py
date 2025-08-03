@@ -4,9 +4,12 @@ GEN3_TABLE = {
     0xFE: "\n", 0xFB: "\f", 0xFF: ""
 }
 
-for i in range(0xBB, 0xD5): GEN3_TABLE[i] = chr(65 + (i - 0xBB))
-for i in range(0xD5, 0xEF): GEN3_TABLE[i] = chr(97 + (i - 0xD5))
-for i in range(0xA1, 0xAB): GEN3_TABLE[i] = str(i - 0xA1)
+for i in range(0xBB, 0xD5):
+    GEN3_TABLE[i] = chr(65 + (i - 0xBB))
+for i in range(0xD5, 0xEF):
+    GEN3_TABLE[i] = chr(97 + (i - 0xD5))
+for i in range(0xA1, 0xAB):
+    GEN3_TABLE[i] = str(i - 0xA1)
 
 REVERSE_TABLE = {v: k for k, v in GEN3_TABLE.items()}
 REVERSE_TABLE["\n"] = 0xFE

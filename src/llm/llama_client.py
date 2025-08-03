@@ -1,6 +1,3 @@
-# injector/llm/llama_client.py
-
-from pathlib import Path
 from llama_cpp import Llama
 from src.llm.base import LlmClient
 from config import LlmConfig
@@ -22,7 +19,6 @@ class LlamaClient(LlmClient):
             repeat_penalty=cfg.repeat_penalty,
             use_mmap=True,
             use_mlock=True,
-            backend='cuda',
         )
 
     def generate(

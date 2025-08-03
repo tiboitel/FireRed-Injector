@@ -24,3 +24,6 @@ types-requests = "*"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.poetry.scripts]
+firered-cli = "cli:main"
+
