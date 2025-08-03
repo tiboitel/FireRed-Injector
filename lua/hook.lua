@@ -5,6 +5,7 @@ local SCRIPT_ENGINE_RAM = 0x03000EB0   -- 0 = game running, 1 = dialog active
 local TARGET_ADDR      = 0x02021D18   -- "String to be displayed in a message box"
 local MAX_LEN          = 255          -- reasonable cap
 local lastState        = 0
+local framesElapsed = 0
 
 local PUNCT = {
 	[0xAD] = ".", [0xB8] = ",", [0xAB] = "!", [0xAC] = "?",
@@ -63,16 +64,50 @@ local function ascii_to_code(c)
   return 0x50 -- fallback: terminator / unknown char
 end
 
+function sleep(n)
+  os.execute("sleep " .. tonumber(n))
+end
+
+function writeDialogInput(text)
+  local f = io.open("shared_ipc/dialog_in.txt", "w")
+  if f then
+    f:write(text)
+    f:close()
+  else
+    console:log("❌ Failed to write input dialog")
+  end
+end
+
+function readDialogOutput()
+  local f = io.open("shared_ipc/dialog_out.txt", "r")
+  if not f then return nil end
+
+  local content = f:read("*a")
+  f:close()
+  if content == nil or content == "" then
+    return nil
+  end
+
+  -- Clear previous LLM response
+  -- local out = io.open("shared_ipc/dialog_out.txt", "w")
+  -- if out then out:close() end
+
+  return content
+end
 
 local function clearDialogBuffer()
 	for i = 0, 127 do -- consrvative full clear
-		emu:write8(0x02021D18 + i, 0x00)
+		emu:write8(0x02021D18 + i, 0xFF)
 	end
 end
 
 local function writeDialogMessage(str)
 	local base = 0x02021D18
 	clearDialogBuffer()
+
+	if str == nil then
+		return
+	end
 
 	for i = 0, #str - 1 do
 		local c = str:sub(i + 1, i + 1)
@@ -92,13 +127,27 @@ local function readDynamicString(addr, maxLen)
 	return table.concat(chars)
 end
 
+
+
 local function onFrame()
 	local cur = read8(SCRIPT_ENGINE_RAM)
-	local msg = "I am a victim of memory injection...\fPlease, help me.\f. . ."
-	if cur == 1 then
+	local msg = ""
+
+	if cur == 1 and lastState == 1 then
+		framesElapsed = framesElapsed + 1
+	end
+	if cur == 1 and framesElapsed >= 0 then
 		local s = readDynamicString(TARGET_ADDR, MAX_LEN)
-		console:log(string.format("🔓 At 0x%08X: %s", TARGET_ADDR, s))
-		writeDialogMessage(msg)
+		writeDialogInput(s)	
+		msg = readDialogOutput()
+		if msg ~= nil and#msg > 0 and s ~= msg then
+			writeDialogMessage(msg)
+		end
+		
+	end
+	if cur == 0 and lastState == 1 then
+		clearDialogBuffer()
+		framesElapsed = 0
 	end
 	lastState = cur
 end

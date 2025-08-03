@@ -11,6 +11,6 @@ class PromptBuilder:
             f"You are the following character.\nCharacter: {card.name} ({card.age} y.o.), at {card.location}. "
             f"Traits: {', '.join(card.traits)}. Goal: {card.motivation}.\n\n"
             f"{self.few_shot}\nNow rewrite the line below with the same tone:\n"
-            f"Original: “{original}”\nRewrite:"
+            f"Original: “{original}”\nRewrite: ”"
         )
 
