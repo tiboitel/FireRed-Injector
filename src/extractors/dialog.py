@@ -36,6 +36,3 @@ class DialogExtractor:
             offset += idx + 1
 
         return result
-
-    def save(self, dialog_map: dict[str, str], path: Path) -> None:
-        path.write_text(json.dumps(dialog_map, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -11,6 +11,7 @@ from src.llm.base import LlmClient
 from src.llm.dialogue_generator import DialogueGenerator
 from src.llm.character_card import CharacterCard
 from src.llm.prompt_builder import PromptBuilder
+from src.utils.io import save_json
 
 
 def parse_args():
@@ -57,7 +58,7 @@ def main():
     original = "You can't escape my bug army!"
     logging.info(f"Generated text: {generator.generate(original)}")
     raw_map = extractor.extract()
-    extractor.save(raw_map, extract_cfg.output_path)
+    save_json(raw_map, extract_cfg.output_path)
     logging.info(f"All dialogs saved to {extract_cfg.output_path}")
 
 if __name__ == "__main__":
