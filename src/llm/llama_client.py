@@ -24,7 +24,7 @@ class LlamaClient(LlmClient):
     def generate(
         self,
         prompt: str,
-        max_tokens: int = 30,
+        max_tokens: int = 127,
         stop: list[str] | None = None,
         **kwargs
     ) -> str:

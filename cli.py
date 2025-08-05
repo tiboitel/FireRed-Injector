@@ -37,7 +37,7 @@ def clear_output_file() -> None:
 
 def _format_rewrite(s: str) -> str:
     s = list(s)
-    i = 24
+    i = 30
     toggle = True  # True for \n, False for \t
     while i < len(s):
         # Find next whitespace at or after index `i`
@@ -46,7 +46,7 @@ def _format_rewrite(s: str) -> str:
             break
         s[j] = '\n' if toggle else '\f'
         toggle = not toggle
-        i = j + 24  # Continue checking after the last replaced character
+        i = j + 30  # Continue checking after the last replaced character
     return ''.join(s)
 
 
@@ -105,11 +105,11 @@ def main():
     llm_cfg = LlmConfig(model_path=args.model)
 
     character = CharacterCard(
-        name="Bug Catcher Timmy",
-        age=14,
+        name="War Refugee",
+        age=32,
         location="Viridian Forest Entrance",
-        traits=["friendly", "energetic", "helpful"],
-        motivation="Capture BUG POKéMON. Share hints. Get new friends.",
+        traits=["war-veteran", "revengeful", "afraid", "maniac"],
+        motivation="Find a purpose in life. Rebuild the country. Say rumors",
     )
 
     prompt_builder = PromptBuilder(few_shot="""

@@ -14,8 +14,15 @@ local GEN3_TABLE = {
   [0x1B] = "é",
   [0xAB] = "!",
   [0xAC] = "?",
+  [0xAD] = ".",
+  [0xAE] = "-",
+  [0xAF] = "･",
   [0xB3] = '"',
   [0xB0] = "…",
+  [0xB1] = "“",
+  [0xB2] = "”",
+  [0xB3] = "‘",
+  [0xB4] = "'",
   [0xB5] = "♂",
   [0xB6] = "♀",
   [0x0C] = "\t",
@@ -70,7 +77,10 @@ local function ascii_to_code(c)
   elseif byte >= 97 and byte <= 122 then
     return 0xD5 + (byte - 97)
   end
-  return 0xAC
+  local f = string.format("%x", byte)
+  console:log("Unknown Byte in Encoding TABLE:")
+  console:log(f)
+  return 0x50
 end
 
 -- Decode bytes at [addr, addr+maxLen)
@@ -137,10 +147,6 @@ function readDialogOutput()
     return nil
   end
 
-  -- Clear previous LLM response
-  -- local out = io.open("shared_ipc/dialog_out.txt", "w")
-  -- if out then out:close() end
-
   return content
 end
 
@@ -167,31 +173,39 @@ local function writeDialogMessage(str)
 end
 
 local msg = ""
+original = nil
 
 local function onFrame()
   local cur = read8(SCRIPT_ENGINE_RAM)
   if cur == 1 and lastState == 0 then
     framesElapsed = 0
+    msg = ""
+    original = nil
   end
 
   if cur == 1 and framesElapsed == 2 then
-    local original = readDynamicString(TARGET_ADDR, MAX_LEN)
-    writeDialogInput(original)
+    original = readDynamicString(TARGET_ADDR, MAX_LEN)
+    if original ~= nil then
+      writeDialogInput(original)
+
+    sleep(5)
+    msg = readDialogOutput()
+    console:log("[INFO] ipc read :")
+    console:log(msg)
   end
 
   if cur == 1 then
     framesElapsed = framesElapsed + 1
-    if msg and msg ~= original then
+    if msg and msg ~= origina and framesElapsed >= 2 then
       writeDialogMessage(msg)
     end
   end
 
   if cur == 0 and lastState == 1 then
-      msg = readDialogOutput()
+    clearDialogBuffer()
   end
 
-  lastState = cur
+ lastState = cur
 end
 
 callbacks:add("frame", onFrame)
-
