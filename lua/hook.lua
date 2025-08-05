@@ -150,7 +150,7 @@ function writeDialogInput(text)
     f:write(text)
     f:close()
   else
-    console:log("❌ Failed to write input dialog")
+    console:log("Failed to write input dialog")
   end
 end
 
@@ -164,6 +164,12 @@ function readDialogOutput()
     return nil
   end
 
+  local f = io.open("shared_ipc/dialog_out.txt", "w")
+  if f then
+    f:write("")
+    f:close()
+  end
+
   return content
 end
 
@@ -175,6 +181,8 @@ end
 
 local msg = ""
 local dialogueHooked = false
+local readMessage = false
+local writeMessage = false
 original = nil
 
 local function onFrame()
@@ -183,15 +191,27 @@ local function onFrame()
     framesElapsed = 0
     msg = ""
     original = nil
+    dialogueHooked = false
+    readMessage = false
+    writeMessage = false
   end
 
   if cur == 1 and framesElapsed <= 2 then
     original = readDynamicString(TARGET_ADDR, MAX_LEN)
-    if original ~= nil and #original > 5 and dialogueHooked == false then
+    if original ~= nil and #original >= 1 and dialogueHooked == false then
       original = original:gsub("'", "’")
-      writeDialogInput(original)
+      --- Sleept time estimation: ~number of tokens (len / 4) * generation per token.
+      local sleep_time = #original * (#original / 2) / 1000
+      if original ~= msg and writeMessage == false then
+        wreDialogInput(original)
+        sleep(sleep_time)
+        writeMessage = true
+        if readMessage == false then
+          msg = readDialogOutput()
+          readMessage = true
+        end
+      end
       original = nil
-      sleep(4)
       dialogueHooked = true
     end
   end
@@ -200,25 +220,19 @@ local function onFrame()
     framesElapsed = framesElapsed + 1
  end
 
- if cur == 1 and framesElapsed > 1 then
-    msg = readDialogOutput()
-    console:log("[INFO] ipc read :")
-    console:log(msg)
-
-   if msg and msg ~= original and framesElapsed >= 2 then
+ if cur == 1 and framesElapsed >= 2 then
+    if msg and msg ~= original then
       writeDialogMessage(msg)
     end
  end
 
   if cur == 0 and lastState == 1 then
     framesElapsed = 0
-    msg = ""
-    original = nil
-    dialogueHooked = false
     clearDialogBuffer()
+    readMessage = false
   end
 
  lastState = cur
 end
 
-callbacks:add("frame", onFrame)
+callbackadd("frame", onFrame)

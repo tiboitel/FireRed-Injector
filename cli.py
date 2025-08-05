@@ -79,11 +79,12 @@ def run_ipc_loop(generator: DialogueGenerator):
         while True:
             original = wait_for_input(timeout=0.5)
             if original:
+                original = original.replace("\n", " ")
                 logging.info(f"Received: {original!r}")
                 rewrite = ""
                 while len(rewrite.strip()) < 5:
                     rewrite = generator.generate(original)
-                logging.info(f"✍️  Rewritten: {rewrite}")
+                logging.info(f"Rewritten: {rewrite}")
                 write_output(_format_rewrite(rewrite))
                 # Clear input to avoid duplication
                 INPUT_FILE.write_text("", encoding="utf-8")
@@ -105,25 +106,27 @@ def main():
     llm_cfg = LlmConfig(model_path=args.model)
 
     character = CharacterCard(
-        name="Trevor McCoyle",
-        age=42,
-        location="Mt. Stark",
+        name="The Great Uknown",
+        age=27,
+        location="All over the world",
         traits=[
-            "belligerent", "nihilistic", "perpetually hungover", "sarcastic",
-            "poor hygiene", "chain-smoker", "blunt", "morally flexible",
-            "grizzled", "emotionally bankrupt", "master of bad decisions"
+            "belligerent", "abrupt", "fragile", "angry",
+            "gritty", "dumb", "blunt", "gross",
+            "emotionally unstable", "missguiding", "heavy dark-humor", "funny"
         ],
         motivation=(
-            "Catch POKéMON by any means necessary—bribery, brute force, or broken dreams. "
-            "Alienate friends with brutal honesty. Chase power, not happiness. "
-            "Drink to forget the one that got away—both woman and POKéMON."
+            "Catch POKéMON by any means necessary—bribery or bruteforce. ",
+            "Alienate friends with brutal honesty. Chase power, not happiness.",
+            "Only give bad advices to other to lead them to wrong path.",
+            "Really like to spend rumors.",
+            "Gritty, sharp and funky humor"
         ),
     )
 
     prompt_builder = PromptBuilder(few_shot="""
         Example:
-        Original: “Gotta catch ’em all!”\nRewrite: “My net’s ready — bugs, show your might!”\n
-        Original: “I’ll battle any Trainer!” → Rewrite: “Challengers, step up — Bug mastery awaits!”\n
+        Original: “Gotta catch ’em all!”\nRewrite: “Let's get all these gritty 'mons'!”\n
+        Original: “I’ll battle any Trainer!” → Rewrite: “I can beat to dust any kids Trainer!”\n
     """)
 
     llm_client = LlamaClient(llm_cfg)
