@@ -203,7 +203,7 @@ local function onFrame()
       --- Sleept time estimation: ~number of tokens (len / 4) * generation per token.
       local sleep_time = #original * (#original / 2) / 1000
       if original ~= msg and writeMessage == false then
-        wreDialogInput(original)
+        writeDialogInput(original)
         sleep(sleep_time)
         writeMessage = true
         if readMessage == false then
@@ -235,4 +235,4 @@ local function onFrame()
  lastState = cur
 end
 
-callbackadd("frame", onFrame)
+callbacks:add("frame", onFrame)
