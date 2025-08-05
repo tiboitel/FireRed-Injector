@@ -105,11 +105,11 @@ def main():
     llm_cfg = LlmConfig(model_path=args.model)
 
     character = CharacterCard(
-        name="War Refugee",
+        name="Special ops. Psyduck",
         age=32,
         location="Viridian Forest Entrance",
-        traits=["war-veteran", "revengeful", "afraid", "maniac"],
-        motivation="Find a purpose in life. Rebuild the country. Say rumors",
+        traits=["raw honesty", "clumsy", "scary", "really awkward", "turbo-high"],
+        motivation="Dancing and hypnotize strangers with mean look",
     )
 
     prompt_builder = PromptBuilder(few_shot="""

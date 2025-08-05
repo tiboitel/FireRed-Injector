@@ -5,16 +5,17 @@ local TARGET_ADDR      = 0x02021D18
 local MAX_LEN          = 255
 local lastState, framesElapsed = 0, 0
 
+local function byte(chr) return string.char(chr) end
+
 -- Build GEN3_TABLE and REVERSE_TABLE just like Python
 local GEN3_TABLE = {
   [0x00] = " ",
   [0xAD] = ".",
   [0xB8] = ",",
-  [0xB4] = "'",
-  [0x1B] = "é",
+  [0xB4] = "'",  
+  [0x1B] = byte(0x1B),
   [0xAB] = "!",
   [0xAC] = "?",
-  [0xAD] = ".",
   [0xAE] = "-",
   [0xAF] = "･",
   [0xB3] = '"',
@@ -77,8 +78,9 @@ local function ascii_to_code(c)
   elseif byte >= 97 and byte <= 122 then
     return 0xD5 + (byte - 97)
   end
-  local f = string.format("%x", byte)
+  local f = string.format("%02x", byte)
   console:log("Unknown Byte in Encoding TABLE:")
+  console:log(tostring(byte))
   console:log(f)
   return 0x50
 end
@@ -183,23 +185,30 @@ local function onFrame()
     original = nil
   end
 
-  if cur == 1 and framesElapsed == 2 then
+  if cur == 1 and framesElapsed <= 2 then
     original = readDynamicString(TARGET_ADDR, MAX_LEN)
     if original ~= nil then
       writeDialogInput(original)
-
-    sleep(5)
-    msg = readDialogOutput()
-    console:log("[INFO] ipc read :")
-    console:log(msg)
+      original = nil
+    end
   end
 
   if cur == 1 then
     framesElapsed = framesElapsed + 1
-    if msg and msg ~= origina and framesElapsed >= 2 then
+ end
+
+ if cur == 1 and framesElapsed > 1 then
+    --- msg = readDialogOutput()
+    msg = "Hey, {PLAYER}! I’ve been waiting for\n you in Route 1…\f" ..
+    "Your level 5 Pikachu’s looking strong—are\n you ready to catch ’em all?\f" ..
+    "Let’s go, {RIVAL}! élan is everything. 12345\f"
+    console:log("[INFO] ipc read :")
+    console:log(msg)
+
+   if msg and msg ~= original and framesElapsed >= 2 then
       writeDialogMessage(msg)
     end
-  end
+ end
 
   if cur == 0 and lastState == 1 then
     clearDialogBuffer()
