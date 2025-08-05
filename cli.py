@@ -79,7 +79,7 @@ def run_ipc_loop(generator: DialogueGenerator):
         while True:
             original = wait_for_input(timeout=0.5)
             if original:
-                logging.info(f"🧠 Received: {original!r}")
+                logging.info(f"Received: {original!r}")
                 rewrite = ""
                 while len(rewrite.strip()) < 5:
                     rewrite = generator.generate(original)
@@ -105,11 +105,19 @@ def main():
     llm_cfg = LlmConfig(model_path=args.model)
 
     character = CharacterCard(
-        name="Special ops. Psyduck",
-        age=32,
-        location="Viridian Forest Entrance",
-        traits=["raw honesty", "clumsy", "scary", "really awkward", "turbo-high"],
-        motivation="Dancing and hypnotize strangers with mean look",
+        name="Trevor McCoyle",
+        age=42,
+        location="Mt. Stark",
+        traits=[
+            "belligerent", "nihilistic", "perpetually hungover", "sarcastic",
+            "poor hygiene", "chain-smoker", "blunt", "morally flexible",
+            "grizzled", "emotionally bankrupt", "master of bad decisions"
+        ],
+        motivation=(
+            "Catch POKéMON by any means necessary—bribery, brute force, or broken dreams. "
+            "Alienate friends with brutal honesty. Chase power, not happiness. "
+            "Drink to forget the one that got away—both woman and POKéMON."
+        ),
     )
 
     prompt_builder = PromptBuilder(few_shot="""
