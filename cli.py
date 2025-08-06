@@ -2,7 +2,6 @@ import logging
 import argparse
 import time
 from pathlib import Path
-
 from config import ExtractConfig, LlmConfig
 from src.loaders.rom_loader import RomLoader
 from src.codecs.gen3 import Gen3TextCodec
@@ -12,43 +11,14 @@ from src.llm.dialogue_generator import DialogueGenerator
 from src.llm.character_card import CharacterCard
 from src.llm.prompt_builder import PromptBuilder
 from src.utils.io import save_json
+from src.utils.format import format_dialogue
+from src.ipc.file_ipc import init_ipc, read_request, write_response
 
 # === IPC Setup ===
 
 IPC_DIR = Path("/home/tiboitel/Downloads/shared_ipc")
 INPUT_FILE = IPC_DIR / "dialog_in.txt"
 OUTPUT_FILE = IPC_DIR / "dialog_out.txt"
-
-def wait_for_input(timeout=5.0) -> str | None:
-    start = time.time()
-    while time.time() - start < timeout:
-        if INPUT_FILE.exists():
-            content = INPUT_FILE.read_text(encoding="utf-8").strip()
-            if content:
-                return content
-        time.sleep(0.1)
-    return None
-
-def write_output(text: str) -> None:
-    OUTPUT_FILE.write_text(text.strip(), encoding="utf-8")
-
-def clear_output_file() -> None:
-    OUTPUT_FILE.write_text("", encoding="utf-8")
-
-def _format_rewrite(s: str) -> str:
-    s = list(s)
-    i = 30
-    toggle = True  # True for \n, False for \t
-    while i < len(s):
-        # Find next whitespace at or after index `i`
-        j = next((j for j in range(i, len(s)) if s[j].isspace()), -1)
-        if j == -1:
-            break
-        s[j] = '\n' if toggle else '\f'
-        toggle = not toggle
-        i = j + 30  # Continue checking after the last replaced character
-    return ''.join(s)
-
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -70,31 +40,38 @@ def run_extraction(extract_cfg: ExtractConfig):
     save_json(raw_map, extract_cfg.output_path)
     logging.info(f"All dialogs saved to {extract_cfg.output_path}")
 
-def run_ipc_loop(generator: DialogueGenerator):
-    logging.info("🔁 IPC Mode Enabled — Waiting for input from Lua...")
-    IPC_DIR.mkdir(exist_ok=True)
-    clear_output_file()
+from src.ipc.file_ipc import init_ipc, read_request, write_response
 
+def run_ipc_loop(generator: DialogueGenerator, codec: Gen3TextCodec):
+    logging.info("🔁 IPC Mode Enabled — Atomic IPC handshake")
+    init_ipc()
     try:
         while True:
-            original = wait_for_input(timeout=0.5)
-            if original:
+            req = read_request()
+            if req:
+                req_id, original = req
+                logging.info(f"{original}")
+                original = codec.decode(original)
                 original = original.replace("\n", " ")
-                logging.info(f"Received: {original!r}")
+                original = original.replace("\x0c", " ")
+                logging.info(f"[{req_id}] Received: {original!r}")
+
                 rewrite = ""
                 while len(rewrite.strip()) < 5:
                     rewrite = generator.generate(original)
-                logging.info(f"Rewritten: {rewrite}")
-                write_output(_format_rewrite(rewrite))
-                # Clear input to avoid duplication
-                INPUT_FILE.write_text("", encoding="utf-8")
-                time.sleep(0.1)
+                logging.info(f"[{req_id}] Rewritten: {rewrite!r}")
+                rewrite = format_dialogue(rewrite)
+                data = codec.encode(rewrite, max_len=255)
+                write_response(req_id, data)
+
+            time.sleep(0.05)
     except KeyboardInterrupt:
         logging.info("🚪 IPC mode terminated by user.")
 
 def main():
     logging.basicConfig(level=logging.INFO)
     args = parse_args()
+    codec = Gen3TextCodec()
 
     extract_cfg = ExtractConfig(
         rom_path=args.rom,
@@ -111,7 +88,7 @@ def main():
         location="All over the world",
         traits=[
             "belligerent", "abrupt", "fragile", "angry",
-            "gritty", "dumb", "blunt", "gross",
+            "gritty", "dumb", "blunt", "gross", "south park fan",
             "emotionally unstable", "missguiding", "heavy dark-humor", "funny"
         ],
         motivation=(
@@ -125,15 +102,17 @@ def main():
 
     prompt_builder = PromptBuilder(few_shot="""
         Example:
-        Original: “Gotta catch ’em all!”\nRewrite: “Let's get all these gritty 'mons'!”\n
-        Original: “I’ll battle any Trainer!” → Rewrite: “I can beat to dust any kids Trainer!”\n
+        Original: Gotta catch ’em all!\nRewrite: Let's get all these fuckers !\n
+        Original: I’ll battle any Trainer! → Rewrite: “I can beat to dust any kids.\n
+        Original: I love my POKéMON! → Rewrite: I love Digimons, yes I'm a psycho, dawg !!!\n
+        Original: Hey ! I grow by beard since two years → Yo, wanna touch my sphagetti beard ? Mmh.. *insistant glare*
     """)
 
     llm_client = LlamaClient(llm_cfg)
     generator = DialogueGenerator(llm_client, character, prompt_builder)
 
     if args.ipc:
-        run_ipc_loop(generator)
+        run_ipc_loop(generator, codec)
     else:
         original = "I came here with some friends to catch us some BUG POKéMON!\n"
         rewrite = ""

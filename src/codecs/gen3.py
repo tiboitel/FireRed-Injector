@@ -11,7 +11,6 @@ class Gen3TextCodec(TextCodec):
                 break
             elif b == 0xFB:
                 result.append("\f")
-                break
             elif b == 0xFE:
                 result.append("\n")
             elif b == 0xFC and i + 1 < len(data):

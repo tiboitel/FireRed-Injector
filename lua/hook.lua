@@ -1,238 +1,198 @@
--- hook.lua — encoding & decoding aligned with Gen3TextCodec
+-- hook.lua — faithful rework of original timing + req_id IPC
+-- Lua sends raw dialog bytes to Python, waits for encoded response,
+-- injects response at the exact same moment as original PoC.
+-- Cleans up IPC files after use. Uses small helper functions for clarity.
 
 local SCRIPT_ENGINE_RAM = 0x03000EB0
 local TARGET_ADDR      = 0x02021D18
 local MAX_LEN          = 255
-local lastState, framesElapsed = 0, 0
+local GEN_TERM        = 0xFF
+local FALLBACK_TERM   = 0x50
 
-local function byte(chr) return string.char(chr) end
+-- Timeouts / waits (seconds)
+local POLL_SLEEP_SEC   = 0.1
+local RESPONSE_TIMEOUT = 15.0
 
--- Build GEN3_TABLE and REVERSE_TABLE just like Python
-local GEN3_TABLE = {
-  [0x00] = " ",
-  [0xAD] = ".",
-  [0xB8] = ",",
-  [0x1B] = byte(0x1B),
-  [0xAB] = "!",
-  [0xAC] = "?",
-  [0xAE] = "-",
-  [0xAF] = "･",
-  [0xB0] = "…",
-  [0xB1] = "“",
-  [0xB2] = "”",
-  [0xB3] = "‘",
-  [0xB4] = "'",
-  [0xB5] = "♂",
-  [0xB6] = "♀",
-  [0x0C] = "\t",
-  [0xFE] = "\n",
-  [0xFB] = "\f",
-  [0xFF] = ""
-}
+local lastState = 0
+local framesElapsed = 0
 
--- A–Z
-for b = 0xBB, 0xD4 do
-  GEN3_TABLE[b] = string.char(65 + (b - 0xBB))
-end
--- a–z
-for b = 0xD5, 0xEE do
-  GEN3_TABLE[b] = string.char(97 + (b - 0xD5))
-end
--- digits 0–9 at 0xA1–0xAA
-for b = 0xA1, 0xAA do
-  GEN3_TABLE[b] = tostring(b - 0xA1)
-end
+local dialogueHooked = false
+local requested = false
+local msg_bytes = nil
+local original_bytes = nil
 
--- REVERSE_TABLE maps characters to codes (or two‑byte sequences for placeholders)
-local REVERSE_TABLE = {}
-for byte, ch in pairs(GEN3_TABLE) do
-  if ch ~= "" then
-    REVERSE_TABLE[ch] = byte
-  end
-end
--- add control escapes
-REVERSE_TABLE["\n"] = 0xFE
-REVERSE_TABLE["\f"] = 0xFB
-REVERSE_TABLE["\t"] = 0x0C
-REVERSE_TABLE["{PLAYER}"] = {0xFC, 0x10}
-REVERSE_TABLE["{RIVAL}"]  = {0xFC, 0x11}
+-- small utilities ----------------------------------------------------------
 
--- helper functions
 local function read8(addr) return emu:read8(addr) end
 
-local function code_to_ascii(b)
-  local ch = GEN3_TABLE[b]
-  if ch then return ch end
-  return "?"
-end
-
-local function ascii_to_code(c)
-  local r = REVERSE_TABLE[c]
-  if r then return r end
-
-  local byte = string.byte(c)
-  if byte >= 65 and byte <= 90 then
-    return 0xBB + (byte - 65)
-  elseif byte >= 97 and byte <= 122 then
-    return 0xD5 + (byte - 97)
-  end
-  local f = string.format("%02x", byte)
-  console:log("Unknown Byte in Encoding TABLE:")
-  console:log(tostring(byte))
-  console:log(f)
-  return 0x50
-end
-
--- Decode bytes at [addr, addr+maxLen)
-local function readDynamicString(addr, maxLen)
-  local result = {}
+-- Read raw Gen3 bytes from dialog buffer (stops at 0xFF or 0x50)
+local function readRawDialog(addr, maxLen)
+  local parts = {}
   for i = 0, maxLen - 1 do
     local b = read8(addr + i)
-    if b == 0x50 or b == 0xFF then break end
-    table.insert(result, code_to_ascii(b))
-  end
-  return table.concat(result)
-end
-
--- Write text (Unicode-compatible) into dialog buffer
-
-local function writeDialogMessage(str)
-  -- clear buffer
-  for i = 0, MAX_LEN - 1 do
-    emu:write8(TARGET_ADDR + i, 0xFF)
-  end 
-  if not str or #str == 0 then
-    return
-  end
-  str = str:gsub("’", "'") 
-  local ptr = TARGET_ADDR
-  local i = 1
-  while i <= #str and (ptr - TARGET_ADDR) < (MAX_LEN - 1) do
-    -- handle UTF-8 “é” (0xC3 0xA9) as one character
-    local b1 = string.byte(str, i, i)
-    local b2 = string.byte(str, i+1, i+1)
-    if b1 == 0xC3 and b2 == 0xA9 then
-      emu:write8(ptr, 0x1B)
-      ptr = ptr + 1
-      i = i + 2
-    else
-      local c = str:sub(i, i)
-      local code = REVERSE_TABLE[c]
-      if code then
-        emu:write8(ptr, code)
-      else
-        -- fallback for A–Z, a–z
-        local byteVal = string.byte(c)
-        if byteVal and byteVal >= 65 and byteVal <= 90 then
-          emu:write8(ptr, 0xBB + (byteVal - 65))
-        elseif byteVal and byteVal >= 97 and byteVal <= 122 then
-          emu:write8(ptr, 0xD5 + (byteVal - 97))
-        else
-          -- unknown; write terminator/filler
-          emu:write8(ptr, 0x50)
-        end
-      end
-      ptr = ptr + 1
-      i = i + 1
+    if b == GEN_TERM then
+      break
     end
+    table.insert(parts, string.char(b))
   end
-  -- terminator
-  emu:write8(ptr, 0xFF)
+  return table.concat(parts)
 end
 
-function sleep(n)
-  os.execute("sleep " .. tonumber(n))
-end
-
-function writeDialogInput(text)
-  local f = io.open("shared_ipc/dialog_in.txt", "w")
-  if f then
-    f:write(text)
-    f:close()
-  else
-    console:log("Failed to write input dialog")
+local function write_binary_file(path, data)
+  local f = io.open(path, "wb")
+  if not f then
+    console:log("IPC write error:", path)
+    return false
   end
-end
-
-function readDialogOutput()
-  local f = io.open("shared_ipc/dialog_out.txt", "r")
-  if not f then return nil end
-
-  local content = f:read("*a")
+  f:write(data)
   f:close()
-  if content == nil or content == "" then
-    return nil
-  end
-
-  local f = io.open("shared_ipc/dialog_out.txt", "w")
-  if f then
-    f:write("")
-    f:close()
-  end
-
-  return content
+  return true
 end
+
+local function read_binary_file(path)
+  local f = io.open(path, "rb")
+  if not f then return nil end
+  local d = f:read("*a")
+  f:close()
+  return d
+end
+
+local function safe_remove(path)
+  -- ignore errors
+  if path == nil then return end
+  local ok, err = pcall(os.remove, path)
+  if not ok and err then
+    -- best-effort logging, continue
+    console:log("IPC remove failed:", tostring(path), tostring(err))
+  end
+end
+
+local function gen_req_id()
+  return tostring(os.time()) .. "_" .. tostring(math.random(1, 1e6))
+end
+
+-- IPC helpers --------------------------------------------------------------
+
+local function write_request(req_id, raw_bytes)
+  local path = string.format("shared_ipc/dialog_in_%s.bin", req_id)
+  return write_binary_file(path, raw_bytes)
+end
+
+local function read_response(req_id)
+  local path = string.format("shared_ipc/dialog_out_%s.bin", req_id)
+  return read_binary_file(path)
+end
+
+-- Memory write -------------------------------------------------------------
 
 local function clearDialogBuffer()
-	for i = 0, 127 do -- consrvative full clear
-		emu:write8(0x02021D18 + i, 0xFF)
-	end
+  for i = 0, 127 do
+    emu:write8(TARGET_ADDR + i, 0xFF)
+  end
 end
 
-local msg = ""
-local dialogueHooked = false
-local readMessage = false
-local writeMessage = false
-original = nil
+local function writeDialogBytesFromString(data)
+  -- clear buffer first
+  for i = 0, MAX_LEN - 1 do
+    emu:write8(TARGET_ADDR + i, 0xFF)
+  end
+  for i = 1, #data do
+    emu:write8(TARGET_ADDR + i - 1, string.byte(data, i))
+  end
+end
+
+-- Main frame handler (preserves original PoC behavior) --------------------
 
 local function onFrame()
   local cur = read8(SCRIPT_ENGINE_RAM)
+
+  -- dialog box just opened -> reset
   if cur == 1 and lastState == 0 then
     framesElapsed = 0
-    msg = ""
-    original = nil
     dialogueHooked = false
-    readMessage = false
-    writeMessage = false
+    requested = false
+    msg_bytes = nil
+    original_bytes = nil
   end
 
-  if cur == 1 and framesElapsed <= 2 then
-    original = readDynamicString(TARGET_ADDR, MAX_LEN)
-    if original ~= nil and #original >= 1 and dialogueHooked == false then
-      original = original:gsub("'", "’")
-      --- Sleept time estimation: ~number of tokens (len / 4) * generation per token.
-      local sleep_time = #original * (#original / 2) / 1000
-      if original ~= msg and writeMessage == false then
-        writeDialogInput(original)
-        sleep(sleep_time)
-        writeMessage = true
-        if readMessage == false then
-          msg = readDialogOutput()
-          readMessage = true
+  -- While dialog open, within the first two frames read buffer & start IPC once
+  if cur == 1 and framesElapsed <= 2 and not dialogueHooked then
+    -- read the raw buffer exactly like original did
+    console:log("[INFO] ReadRawDialog called.")
+    local raw = readRawDialog(TARGET_ADDR, MAX_LEN)
+    console:log(raw)
+    if raw and #raw >= 3 and not requested then
+      -- normalize quotes to match earlier behavior (if desired)
+      -- raw = raw:gsub("'", "’") -- raw is binary; avoid changing bytes here
+      original_bytes = raw
+      local req_id = gen_req_id()
+      console:log("[INFO] write_request called.")
+      local ok = write_request(req_id, original_bytes)
+      if not ok then
+        console:log("Failed to write IPC request", req_id)
+        dialogueHooked = true
+      else
+        requested = true
+        -- Wait synchronously for Python response (like original sleep-based behavior).
+        -- We poll response file with small sleeps until available or timeout.
+        local start_time = os.time()
+        local resp = nil
+        while true do
+          resp = read_response(req_id)
+          if resp and #resp > 0 then
+            -- cleanup request file and response file (response file removed by read_response reader? we remove explicitly)
+            --
+            console:log("[INFO] Readed response.")
+            safe_remove(string.format("shared_ipc/dialog_in_%s.bin", req_id))
+            safe_remove(string.format("shared_ipc/dialog_out_%s.bin", req_id))
+            msg_bytes = resp
+            break
+          end
+          -- timeout check (use os.time for seconds granularity)
+          if os.difftime(os.time(), start_time) >= RESPONSE_TIMEOUT then
+            console:log("[Error] IPC timeout for")
+            console:log(req_id)
+            -- cleanup request file
+            safe_remove(string.format("shared_ipc/dialog_in_%s.bin", req_id))
+            msg_bytes = nil
+            break
+          end
+          -- small sleep to avoid busy-loop; relies on host shell sleep supporting fractional secs
+          -- This mirrors original PoC behavior of blocking until LLM returns.
+          os.execute("sleep " .. tostring(POLL_SLEEP_SEC))
         end
+        dialogueHooked = true
       end
-      original = nil
-      dialogueHooked = true
     end
   end
 
+  -- advance frame counter while dialog box is open
   if cur == 1 then
     framesElapsed = framesElapsed + 1
- end
+  end
 
- if cur == 1 and framesElapsed >= 2 then
-    if msg and msg ~= original then
-      writeDialogMessage(msg)
+  -- On/after frame 2 (same as original) inject the message (if any)
+  if cur == 1 and framesElapsed >= 2 then
+    if msg_bytes and #msg_bytes > 0 then
+      console:log("[INFO] Injected response.")
+      writeDialogBytesFromString(msg_bytes)
+      -- ensure we don't reinject
+      msg_bytes = nil
     end
- end
+  end
 
+  -- dialog closed -> reset and clear buffer like original
   if cur == 0 and lastState == 1 then
     framesElapsed = 0
     clearDialogBuffer()
-    readMessage = false
+    dialogueHooked = false
+    requested = false
+    msg_bytes = nil
+    original_bytes = nil
   end
 
- lastState = cur
+  lastState = cur
 end
 
 callbacks:add("frame", onFrame)
+
