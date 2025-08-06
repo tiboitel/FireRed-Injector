@@ -1,4 +1,5 @@
-from llama_cpp import Llama
+from typing import Any
+from llama_cpp import Llama, CreateCompletionResponse
 from src.llm.base import LlmClient
 from config import LlmConfig
 
@@ -6,10 +7,6 @@ class LlamaClient(LlmClient):
     """LlmClient implementation for llama_cpp."""
 
     def __init__(self, cfg: LlmConfig):
-        """
-        :param cfg: LlmConfig instance with model_path and generation hyperparameters.
-        """
-        # Initialize the underlying llama_cpp object
         self.llm = Llama(
             model_path=str(cfg.model_path),
             n_ctx=cfg.n_ctx,
@@ -25,19 +22,36 @@ class LlamaClient(LlmClient):
         self,
         prompt: str,
         max_tokens: int = 127,
-        stop: list[str] | None = None,
-        **kwargs
+        stop: Any = None,
+        **kwargs: Any,
     ) -> str:
         """
         Call the underlying Llama model and return its output.
-        Additional arguments can be passed through kwargs if needed.
         """
-        response = self.llm(
-            prompt,
-            max_tokens=max_tokens,
-            stop=stop or ["\n"],
-            **kwargs
-        )
-        # Extract and return the generated text
-        return response["choices"][0]["text"].strip()
+        raw: Any = \
+            self.llm(  # type: ignore[arg-type]
+                prompt,
+                max_tokens=max_tokens,
+                stop=stop or ["\n"],
+                **kwargs
+            )
+
+        # Normalize to a single response dict
+        resp: CreateCompletionResponse
+        if isinstance(raw, (list, tuple)):
+            resp = raw[0]
+        else:
+            resp = raw
+
+        # Now extract the text
+        choices = resp.get("choices")
+        if not isinstance(choices, list) or len(choices) == 0:
+            raise RuntimeError("LLM returned no choices")
+        first = choices[0]
+        if not isinstance(first, dict) or "text" not in first:
+            raise RuntimeError("Unexpected LLM response structure")
+        text = first["text"]
+        if not isinstance(text, str):
+            raise RuntimeError("LLM choice text is not a string")
+        return text.strip()
 

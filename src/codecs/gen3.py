@@ -1,12 +1,12 @@
 from .base import TextCodec
 from src.codecs.tables import GEN3_TABLE, REVERSE_TABLE
+from typing import Union, List
 
 class Gen3TextCodec(TextCodec):
     def decode(self, data: bytes) -> str:
         result, i = [], 0
         while i < len(data):
             b = data[i]
-
             if b == 0xFF:
                 break
             elif b == 0xFB:
@@ -22,8 +22,8 @@ class Gen3TextCodec(TextCodec):
                 elif code == 0x0C:
                     result.append("→")
                 else:
-                    result.append(f"[FC {code:02X}]")  # Unknown escape
-                i += 1  # skip next bytes
+                    result.append(f"[FC {code:02X}]")
+                i += 1
             else:
                 result.append(GEN3_TABLE.get(b, f"[{b:02X}]"))
             i += 1
@@ -33,34 +33,35 @@ class Gen3TextCodec(TextCodec):
         encoded = bytearray()
         i = 0
         while i < len(text):
-            matched = False
-            # Match placeholders
-            if text[i:i+8] == "{PLAYER}":
+            # Handle placeholders first
+            if text.startswith("{PLAYER}", i):
                 encoded.extend([0xFC, 0x10])
-                i += 8
-                matched = True
-            elif text[i:i+7] == "{RIVAL}":
+                i += len("{PLAYER}")
+                continue
+            if text.startswith("{RIVAL}", i):
                 encoded.extend([0xFC, 0x11])
-                i += 7
-                matched = True
-
-            if matched:
+                i += len("{RIVAL}")
                 continue
 
             c = text[i]
-            code = REVERSE_TABLE.get(c)
-            if code is not None:
+            code: Union[int, List[int], None] = REVERSE_TABLE.get(c)
+            if isinstance(code, list):
+                # extend by each byte
+                encoded.extend(code)
+            elif isinstance(code, int):
                 encoded.append(code)
-            elif "A" <= c <= "Z":
-                encoded.append(0xBB + ord(c) - 65)
-            elif "a" <= c <= "z":
-                encoded.append(0xD5 + ord(c) - 97)
             else:
-                encoded.append(0x50)  # fallback
+                # fallback for A–Z, a–z, or unknown
+                if "A" <= c <= "Z":
+                    encoded.append(0xBB + ord(c) - 65)
+                elif "a" <= c <= "z":
+                    encoded.append(0xD5 + ord(c) - 97)
+                else:
+                    encoded.append(0x50)
             i += 1
-
             if len(encoded) >= max_len - 1:
                 break
 
         encoded.append(0xFF)
         return bytes(encoded)
+

@@ -22,12 +22,15 @@ class RomLoader(ByteSource):
 
     def read_u16(self, offset: int, *, little_endian: bool = True) -> int:
         fmt = '<H' if little_endian else '>H'
-        return unpack(fmt, self.read(offset, 2))[0]
+        val = unpack(fmt, self.read(offset, 2))[0]  # type: ignore[no-any-return]
+        return int(val)
 
     def read_u32(self, offset: int, *, little_endian: bool = True) -> int:
         fmt = '<I' if little_endian else '>I'
-        return unpack(fmt, self.read(offset, 4))[0]
+        val = unpack(fmt, self.read(offset, 4))[0]  # type: ignore[no-any-return]
+        return int(val)
 
     def read_pointer(self, offset: int, base_address: int = 0x08000000) -> int:
         ptr = self.read_u32(offset, little_endian=True)
         return ptr - base_address
+

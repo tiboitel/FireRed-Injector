@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Any
 
 class LlmClient():
     """Protocol for any LLM client implementation."""
@@ -8,8 +9,8 @@ class LlmClient():
         self,
         prompt: str,
         max_tokens: int = 60,
-        stop: list[str] | None = None,
-        **kwargs
+        stop: Any = None,
+        **kwargs: Any,
     ) -> str:
         """
         Generate text continuation for the given prompt.

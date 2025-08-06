@@ -1,4 +1,6 @@
-GEN3_TABLE = {
+from typing import Dict, Union, List
+
+GEN3_TABLE: Dict[int, str] = {
     0x00: " ", 0xAD: ".", 0xAE: "-", 0xB8: ",", 0xB4: "'", 0x1B: "é",
     0xAB: "!", 0xAC: "?", 0xB3: '"', 0xB0: "…", 0xB5: "♂", 0xB6: "♀",
     0xF0: ":", 0xB7: "$",
@@ -12,9 +14,10 @@ for i in range(0xD5, 0xEF):
 for i in range(0xA1, 0xAB):
     GEN3_TABLE[i] = str(i - 0xA1)
 
-REVERSE_TABLE = {v: k for k, v in GEN3_TABLE.items()}
+REVERSE_TABLE: Dict[str, Union[int, List[int]]] = {v: k for k, v in GEN3_TABLE.items()}
 REVERSE_TABLE["\n"] = 0xFE
 REVERSE_TABLE["\f"] = 0xFB
 REVERSE_TABLE["\t"] = 0x0C
 REVERSE_TABLE["{PLAYER}"] = [0xFC, 0x10]
-REVERSE_TABLE["{RIVAL}"] = [0xFC, 0x11]
+REVERSE_TABLE["{RIVAL}"]  = [0xFC, 0x11]
+

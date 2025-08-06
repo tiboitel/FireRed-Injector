@@ -13,7 +13,7 @@ def test_encode_decode_roundtrip(plaintext):
     codec = Gen3TextCodec()
     encoded = codec.encode(plaintext)
     # Ensure terminator byte 0xFF is present at end
-    assert encoded.endswith(b'\xFF'), "Missing 0xFF terminator in encoded bytes"
+    assert encoded.endswith(b'\xFF')
 
     decoded = codec.decode(encoded)
     # Strip control-chars and whitespace for comparison
