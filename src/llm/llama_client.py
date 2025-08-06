@@ -29,7 +29,7 @@ class LlamaClient(LlmClient):
         Call the underlying Llama model and return its output.
         """
         raw: Any = \
-            self.llm(  # type: ignore[arg-type]
+            self.llm(
                 prompt,
                 max_tokens=max_tokens,
                 stop=stop or ["\n"],
