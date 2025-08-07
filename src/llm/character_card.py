@@ -7,5 +7,5 @@ class CharacterCard:
     age: int
     location: str
     traits: List[str]
-    motivation: str
+    motivation: List[str]
 
