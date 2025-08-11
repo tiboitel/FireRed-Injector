@@ -1,5 +1,6 @@
 import logging
-from config import ExtractConfig
+from pathlib import Path
+from src.config.settings import ExtractConfig
 from src.loaders.rom_loader import RomLoader
 from src.codecs.gen3 import Gen3TextCodec
 from src.extractors.dialog import DialogExtractor
@@ -12,6 +13,7 @@ def run_extraction(extract_cfg: ExtractConfig) -> None:
                                 extract_cfg.start_offset,
                                 extract_cfg.end_offset)
     raw_map = extractor.extract()
-    save_json(raw_map, extract_cfg.output_path)
+    output_path = Path(extract_cfg.output_path) if isinstance(extract_cfg.output_path, str) else extract_cfg.output_path
+    save_json(raw_map, output_path)
     logging.info(f"All dialogs saved to {extract_cfg.output_path}")
 

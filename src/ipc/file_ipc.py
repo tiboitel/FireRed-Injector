@@ -1,15 +1,15 @@
+# src/ipc/file_ipc.py
 import os
-import uuid
 from pathlib import Path
 from typing import Tuple, List, Optional
+from src.config.settings import Settings
 
-IPC_DIR = Path("/home/tiboitel/Downloads/shared_ipc")
+def init_ipc(settings: Settings) -> None:
+    settings.ipc_dir.mkdir(parents=True, exist_ok=True)
+    print(settings.ipc_dir)
 
-def init_ipc(ipc_dir: Path = IPC_DIR) -> None:
-    ipc_dir.mkdir(parents=True, exist_ok=True)
-
-def read_request(ipc_dir: Path = IPC_DIR) -> Optional[Tuple[str, bytes]]:
-    for path in ipc_dir.glob("dialog_in_*.bin"):
+def read_request(settings: Settings) -> Optional[Tuple[str, bytes]]:
+    for path in settings.ipc_dir.glob("dialog_in_*.bin"):
         req_id = path.stem.split("_", 2)[2]
         with open(path, "rb") as f:
             bytes = f.read()
@@ -17,18 +17,18 @@ def read_request(ipc_dir: Path = IPC_DIR) -> Optional[Tuple[str, bytes]]:
         return req_id, bytes
     return None
 
-def write_response(req_id: str, data: bytes, ipc_dir: Path = IPC_DIR) -> None:
-    tmp_path = ipc_dir / f"dialog_out_{req_id}.tmp"
-    final_path = ipc_dir / f"dialog_out_{req_id}.bin"
+def write_response(settings: Settings, req_id: str, data: bytes) -> None:
+    tmp_path = settings.ipc_dir / f"dialog_out_{req_id}.tmp"
+    final_path = settings.ipc_dir / f"dialog_out_{req_id}.bin"
     with open(tmp_path, "wb") as f:
         f.write(data)
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp_path, final_path)
 
-def poll_responses(ipc_dir: Path = IPC_DIR) -> List[str]:
+def poll_responses(settings: Settings) -> List[str]:
     ids: List[str] = []
-    for path in ipc_dir.glob("dialog_out_*.bin"):
+    for path in settings.ipc_dir.glob("dialog_out_*.bin"):
         req_id = path.stem.split("_", 2)[2]
         ids.append(req_id)
     return ids

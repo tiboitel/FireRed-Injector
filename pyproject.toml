@@ -10,6 +10,7 @@ packages = [{ include = "src" }]
 python = "^3.10"
 llama-cpp-python = "^0.2.72"
 numpy = "^1.26"
+toml = "0.10.*"
 # for reading/writing JSON, file operations, etc.
 # (included in stdlib; just listed for clarity)
 

@@ -1,7 +1,7 @@
 from typing import Any
 from llama_cpp import Llama, CreateCompletionResponse
 from src.llm.base import LlmClient
-from config import LlmConfig
+from src.config.settings import LlmConfig
 
 class LlamaClient(LlmClient):
     """LlmClient implementation for llama_cpp."""
