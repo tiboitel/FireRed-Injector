@@ -29,8 +29,10 @@ motivation = [
     "Gritty, sharp and funky humor"
 ]
 
-ipc_dir = "/home/tiboitel/Downloads/shared_ipc"
+[ipc]
+ipc_dir = "path/to/shared_ipc_dir" # usually in Emulator directory
 
+[prompt]
 few_shot_examples = """
 Example:
 Original: Gotta catch ’em all!\nRewrite: Let's get all these fuckers!\n
