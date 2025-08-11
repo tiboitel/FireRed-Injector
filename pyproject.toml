@@ -20,6 +20,7 @@ mypy = "^1.9"
 ruff = "^0.4"
 types-setuptools = "*"
 types-requests = "*"
+types-toml = "*"
 
 [build-system]
 requires = ["poetry-core"]

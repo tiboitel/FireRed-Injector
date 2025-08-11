@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any
+from typing import List
 import toml
 import json
 
@@ -58,7 +58,7 @@ class Settings:
             ),
             character=CharacterCard(**config['character']),
             ipc_dir=Path(config['ipc']['ipc_dir']),
-            few_shot_examples=config.get('few_shot_examples', '')
+            few_shot_examples=config['prompt']['few_shot_examples']
         )
 
     @classmethod

@@ -6,6 +6,8 @@ gba_rom/
 
 # Exported files
 data/
+shared_ipc/
+shared_ipc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

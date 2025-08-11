@@ -76,6 +76,7 @@ def test_load_settings(config_path):
         "Gritty, sharp and funky humor"
     ]
     assert settings.ipc_dir == Path("shared_ipc")
+    print(settings)
     assert settings.few_shot_examples.strip() == '''
 Example:
 Original: Gotta catch ’em all!

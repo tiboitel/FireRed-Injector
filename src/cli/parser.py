@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 from typing import Any
-from src.config.settings import Settings, load_settings
+from src.config.settings import load_settings
 
 def parse_args() -> Any:
     parser = argparse.ArgumentParser()

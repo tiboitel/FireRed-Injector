@@ -1,12 +1,11 @@
 # src/ipc/file_ipc.py
 import os
-from pathlib import Path
+import uuid
 from typing import Tuple, List, Optional
 from src.config.settings import Settings
 
 def init_ipc(settings: Settings) -> None:
     settings.ipc_dir.mkdir(parents=True, exist_ok=True)
-    print(settings.ipc_dir)
 
 def read_request(settings: Settings) -> Optional[Tuple[str, bytes]]:
     for path in settings.ipc_dir.glob("dialog_in_*.bin"):
@@ -34,5 +33,6 @@ def poll_responses(settings: Settings) -> List[str]:
     return ids
 
 def gen_req_id() -> str:
-    return uuid.uuid4().hex
+    uuid_str: str = uuid.uuid4().hex
+    return uuid_str
 

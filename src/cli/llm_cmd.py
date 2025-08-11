@@ -1,6 +1,5 @@
 # src/cli/llm_cmd.py
 import logging
-from src.config.settings import Settings
 from src.cli.parser import parse_args
 from src.cli.extract_cmd import run_extraction
 from src.cli.ipc_cmd import run_ipc_loop
