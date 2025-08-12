@@ -1,5 +1,5 @@
 from src.llm.base import LlmClient
-from src.llm.character_card import CharacterCard
+from src.config.settings import CharacterCard
 from src.llm.prompt_builder import PromptBuilder
 
 class DialogueGenerator:

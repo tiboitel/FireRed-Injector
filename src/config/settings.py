@@ -31,11 +31,16 @@ class CharacterCard:
     motivation: List[str]
 
 @dataclass
+class IpcConfig:
+    ipc_dir: Path
+    ttl: int = 60
+
+@dataclass
 class Settings:
     extract: ExtractConfig
     llm: LlmConfig
     character: CharacterCard
-    ipc_dir: Path = Path("shared_ipc")
+    ipc: IpcConfig
     few_shot_examples: str = field(default_factory=str)
 
     @classmethod
@@ -57,7 +62,10 @@ class Settings:
                 repeat_penalty=config['llm']['repeat_penalty']
             ),
             character=CharacterCard(**config['character']),
-            ipc_dir=Path(config['ipc']['ipc_dir']),
+            ipc=IpcConfig(
+                ipc_dir=Path(config['ipc']['ipc_dir']),
+                ttl=config['ipc']['ttl']
+            ),
             few_shot_examples=config['prompt']['few_shot_examples']
         )
 
@@ -70,7 +78,7 @@ class Settings:
         if 'MODEL_PATH' in os.environ:
             settings.llm.model_path = Path(os.environ['MODEL_PATH'])
         if 'IPC_DIR' in os.environ:
-            settings.ipc_dir = Path(os.environ['IPC_DIR'])
+            settings.ipc.ipc_dir = Path(os.environ['IPC_DIR'])
         return settings
 
     def save_runtime_config(self, path: Path) -> None:
@@ -97,7 +105,10 @@ class Settings:
                     'traits': self.character.traits,
                     'motivation': self.character.motivation
                 },
-                'ipc_dir': str(self.ipc_dir),
+                'ipc': {
+                    'ipc_dir': str(self.ipc.ipc_dir),
+                    'ttl': self.ipc.ttl
+                },
                 'few_shot_examples': self.few_shot_examples
             }, f, indent=2)
 

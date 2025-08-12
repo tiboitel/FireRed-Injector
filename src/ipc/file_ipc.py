@@ -1,14 +1,18 @@
 # src/ipc/file_ipc.py
+
+import logging
 import os
+import time
 import uuid
+from pathlib import Path
 from typing import Tuple, List, Optional
 from src.config.settings import Settings
 
 def init_ipc(settings: Settings) -> None:
-    settings.ipc_dir.mkdir(parents=True, exist_ok=True)
+    settings.ipc.ipc_dir.mkdir(parents=True, exist_ok=True)
 
 def read_request(settings: Settings) -> Optional[Tuple[str, bytes]]:
-    for path in settings.ipc_dir.glob("dialog_in_*.bin"):
+    for path in settings.ipc.ipc_dir.glob("dialog_in_*.bin"):
         req_id = path.stem.split("_", 2)[2]
         with open(path, "rb") as f:
             bytes = f.read()
@@ -17,8 +21,8 @@ def read_request(settings: Settings) -> Optional[Tuple[str, bytes]]:
     return None
 
 def write_response(settings: Settings, req_id: str, data: bytes) -> None:
-    tmp_path = settings.ipc_dir / f"dialog_out_{req_id}.tmp"
-    final_path = settings.ipc_dir / f"dialog_out_{req_id}.bin"
+    tmp_path = settings.ipc.ipc_dir / f"dialog_out_{req_id}.tmp"
+    final_path = settings.ipc.ipc_dir / f"dialog_out_{req_id}.bin"
     with open(tmp_path, "wb") as f:
         f.write(data)
         f.flush()
@@ -27,7 +31,7 @@ def write_response(settings: Settings, req_id: str, data: bytes) -> None:
 
 def poll_responses(settings: Settings) -> List[str]:
     ids: List[str] = []
-    for path in settings.ipc_dir.glob("dialog_out_*.bin"):
+    for path in settings.ipc.ipc_dir.glob("dialog_out_*.bin"):
         req_id = path.stem.split("_", 2)[2]
         ids.append(req_id)
     return ids

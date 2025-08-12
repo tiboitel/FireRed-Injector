@@ -72,14 +72,31 @@ local function gen_req_id()
 end
 
 -- IPC helpers --------------------------------------------------------------
-
+-- atomic write for requests using generic ipc_in_ naming
 local function write_request(req_id, raw_bytes)
-  local path = string.format("shared_ipc/dialog_in_%s.bin", req_id)
-  return write_binary_file(path, raw_bytes)
+  local dir = "shared_ipc"
+  local tmp_path = string.format("%s/ipc_in_%s.tmp", dir, req_id)
+  local final_path = string.format("%s/ipc_in_%s.bin", dir, req_id)
+  local f = io.open(tmp_path, "wb")
+  if not f then
+    console:log("IPC write error (tmp):", tmp_path)
+    return false
+  end
+  f:write(raw_bytes)
+  f:close()
+  local ok, err = os.rename(tmp_path, final_path)
+  if not ok then
+    pcall(os.remove, tmp_path)
+    console:log("IPC rename failed:", tostring(err))
+    return false
+  end
+  return true
 end
 
+
 local function read_response(req_id)
-  local path = string.format("shared_ipc/dialog_out_%s.bin", req_id)
+  local dir = "shared_ipc"
+  local path = string.format("%s/ipc_out_%s.bin", dir, req_id)
   return read_binary_file(path)
 end
 
@@ -143,8 +160,8 @@ local function onFrame()
             -- cleanup request file and response file (response file removed by read_response reader? we remove explicitly)
             --
             console:log("[INFO] Readed response.")
-            safe_remove(string.format("shared_ipc/dialog_in_%s.bin", req_id))
-            safe_remove(string.format("shared_ipc/dialog_out_%s.bin", req_id))
+            safe_remove(string.format("shared_ipc/ipc_in_%s.bin", req_id))
+            safe_remove(string.format("shared_ipc/ipc_out_%s.bin", req_id))
             msg_bytes = resp
             break
           end

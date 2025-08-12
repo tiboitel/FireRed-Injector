@@ -1,4 +1,4 @@
-from src.llm.character_card import CharacterCard
+from src.config.settings import CharacterCard
 
 class PromptBuilder:
     def __init__(self, few_shot: str):

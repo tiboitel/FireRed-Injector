@@ -20,10 +20,6 @@ def main() -> None:
     if ipc_mode:
         run_ipc_loop(settings, generator, codec)
     else:
-        original = "I came here with some friends to catch us some BUG POKéMON!\n"
-        rewrite = ""
-        while len(rewrite) <= 4:
-            rewrite = generator.generate(original)
-            logging.info(f"Generated text: {rewrite}")
+        print("Extract dialogues out of ROM:")
         run_extraction(settings.extract)
 
