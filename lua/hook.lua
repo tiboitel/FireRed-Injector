@@ -170,7 +170,7 @@ local function onFrame()
             console:log("[Error] IPC timeout for")
             console:log(req_id)
             -- cleanup request file
-            safe_remove(string.format("shared_ipc/dialog_in_%s.bin", req_id))
+            safe_remove(string.format("shared_ipc/ipc_in_%s.bin", req_id))
             msg_bytes = nil
             break
           end

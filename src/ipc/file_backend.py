@@ -117,7 +117,6 @@ class FileIpcBackend(IpcBackend):
             if p.name.startswith(IPC_OUT_PREFIX) and p.name.endswith(IPC_SUFFIX):
                 req_id = p.name[len(IPC_OUT_PREFIX):-len(IPC_SUFFIX)]
                 ids.append(req_id)
-            return ids
         return ids
 
     def _cleanup_stale(self) -> None:

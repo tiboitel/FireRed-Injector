@@ -11,6 +11,14 @@ temperature = 1.2
 top_k = 50
 top_p = 0.92
 repeat_penalty = 1.1
+api_base = ""
+api_key = ""
+remote_model = ""
+
+[llm.retry]
+max_attempts = 3
+initial_backoff = 0.2
+backof_multiplier = 2.0
 
 [character]
 name = "The Great Unknown"

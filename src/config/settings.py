@@ -14,6 +14,12 @@ class ExtractConfig:
     end_offset: int
 
 @dataclass
+class LlmRetryConfig:
+    max_attempts: int = 3
+    initial_backoff: float = 0.2
+    backoff_multiplier: float = 2.0
+
+@dataclass
 class LlmConfig:
     model_path: Path
     n_ctx: int = 4096
@@ -21,6 +27,10 @@ class LlmConfig:
     top_k: int = 50
     top_p: float = 0.92
     repeat_penalty: float = 1.1
+    api_base: str = ""
+    api_key: str = ""
+    model: str = ""
+    retry: LlmRetryConfig = field(default_factory=LlmRetryConfig)
 
 @dataclass
 class CharacterCard:
@@ -46,20 +56,31 @@ class Settings:
     @classmethod
     def from_toml(cls, path: Path) -> 'Settings':
         config = toml.load(path)
+        llm_cfg = config['llm']
+        retry_cfg = (llm_cfg.get('retry') or {})
         return cls(
             extract=ExtractConfig(
                 rom_path=Path(config['extract']['rom_path']),
                 output_path=Path(config['extract']['output_path']),
                 start_offset=config['extract']['start_offset'],
-                end_offset=config['extract']['end_offset']
+                end_offset=config['extract']['end_offset'],
             ),
             llm=LlmConfig(
-                model_path=Path(config['llm']['model_path']),
-                n_ctx=config['llm']['n_ctx'],
-                temperature=config['llm']['temperature'],
-                top_k=config['llm']['top_k'],
-                top_p=config['llm']['top_p'],
-                repeat_penalty=config['llm']['repeat_penalty']
+                provider=llm_cfg.get('provider', 'llama'),
+                model_path=Path(llm_cfg['model_path']) if llm_cfg.get('model_path') else None,
+                n_ctx=llm_cfg.get('n_ctx', 4096),
+                temperature=llm_cfg.get('temperature', 1.2),
+                top_k=llm_cfg.get('top_k', 50),
+                top_p=llm_cfg.get('top_p', 0.92),
+                repeat_penalty=llm_cfg.get('repeat_penalty', 1.1),
+                api_base=llm_cfg.get('api_base', ''),
+                api_key=llm_cfg.get('api_key', ''),
+                model=llm_cfg.get('model', ''),
+                retry=LlmRetryConfig(
+                    max_attempts=retry_cfg.get('max_attempts', 3),
+                    initial_backoff=retry_cfg.get('initial_backoff', 0.2),
+                    backoff_multiplier=retry_cfg.get('backoff_multiplier', 2.0),
+                )
             ),
             character=CharacterCard(**config['character']),
             ipc=IpcConfig(
@@ -91,12 +112,21 @@ class Settings:
                     'end_offset': self.extract.end_offset
                 },
                 'llm': {
-                    'model_path': str(self.llm.model_path),
+                    'provider': self.llm.provider,
+                    'model_path': str(self.llm.model_path) if self.llm.model_path else "",
                     'n_ctx': self.llm.n_ctx,
                     'temperature': self.llm.temperature,
                     'top_k': self.llm.top_k,
                     'top_p': self.llm.top_p,
-                    'repeat_penalty': self.llm.repeat_penalty
+                    'repeat_penalty': self.llm.repeat_penalty,
+                    'api_base': self.llm.api_base,
+                    'api_key': self.llm.api_key,
+                    'model': self.llm.model,
+                    'retry': {
+                        'max_attempts': self.llm.retry.max_attempts,
+                        'initial_backoff': self.llm.retry.initial_backoff,
+                        'backoff_multiplier': self.llm.retry.backoff_multiplier,
+                    }
                 },
                 'character': {
                     'name': self.character.name,

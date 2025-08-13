@@ -8,11 +8,15 @@ class LlmClient():
     def generate(
         self,
         prompt: str,
+        *,
         max_tokens: int = 60,
-        stop: Any = None,
+        stop: Optional[Iterable[str]] = None,
+        temperature: Optional[float] = None,
+        top_k: Optional[int] = None,
+        top_p: Optional[float] = None,
         **kwargs: Any,
     ) -> str:
-        """
+       """
         Generate text continuation for the given prompt.
 
         :param prompt: The text prompt to send to the model.
