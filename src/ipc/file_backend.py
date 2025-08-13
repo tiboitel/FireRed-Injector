@@ -4,7 +4,6 @@ import logging
 import os
 import time
 import uuid
-from pathlib import Path
 from typing import Tuple, List, Optional
 from .base import IpcBackend
 from src.config.settings import Settings
@@ -25,7 +24,7 @@ class FileIpcBackend(IpcBackend):
         try:
             self.settings.ipc_dir.chmod(0o700)
         except PermissionError:
-            logging.info("Unable to chmod ipc_dir %s", self.ipc_dir,
+            logging.info("Unable to chmod ipc_dir %s", self.settings.ipc_dir,
                          exc_info=True)
         self._cleanup_stale()
 
@@ -64,7 +63,7 @@ class FileIpcBackend(IpcBackend):
             return req_id, payload
         return None
 
-    def write_response(self, req_id: str, data: bytes):
+    def write_response(self, req_id: str, data: bytes) -> None:
         tmp_name = f"{IPC_OUT_PREFIX}{req_id}.tmp.{uuid.uuid4().hex}"
         tmp_path = self.settings.ipc_dir / tmp_name
         final_path = self.settings.ipc_dir / f"{IPC_OUT_PREFIX}{req_id}{IPC_SUFFIX}"
@@ -106,7 +105,7 @@ class FileIpcBackend(IpcBackend):
                 try:
                     tmp_path.unlink()
                 except Exception:
-                    log.info("Failed to remove tmp ipc file %s", tmp_path, exc_info=True)
+                    logging.info("Failed to remove tmp ipc file %s", tmp_path, exc_info=True)
 
     def list_pending(self) -> List[str]:
         """ Return list of req_ids which have response file present """
@@ -116,9 +115,10 @@ class FileIpcBackend(IpcBackend):
             if not p.is_file():
                 continue
             if p.name.startswith(IPC_OUT_PREFIX) and p.name.endswith(IPC_SUFFIX):
-                req_id = p,name[len(IPC_OUT_PREFIX):-len(IPC_SUFFIX)]
+                req_id = p.name[len(IPC_OUT_PREFIX):-len(IPC_SUFFIX)]
                 ids.append(req_id)
             return ids
+        return ids
 
     def _cleanup_stale(self) -> None:
         """ Remove files older than TTL (TTL > 0) """

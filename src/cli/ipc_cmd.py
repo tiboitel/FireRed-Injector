@@ -1,7 +1,6 @@
 import time
 import logging
 from src.utils.format import format_dialogue
-from src.ipc.file_ipc import init_ipc, read_request, write_response
 from src.ipc.service import IpcService
 from src.llm.dialogue_generator import DialogueGenerator
 from src.codecs.gen3 import Gen3TextCodec

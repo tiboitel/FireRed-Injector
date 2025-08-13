@@ -8,8 +8,48 @@ from typing import Dict
 
 import pytest
 
+from src.config.settings import load_settings
 from src.ipc.file_backend import FileIpcBackend, IPC_IN_PREFIX, IPC_OUT_PREFIX, IPC_SUFFIX
 
+@pytest.fixture
+def config_path(tmp_path):
+    config = """
+[extract]
+rom_path = "gba_rom/fire_red.gba"
+output_path = "data/dialog_map.json"
+start_offset = 1191253
+end_offset = 1722662
+
+[llm]
+model_path = "path/to/your/model"
+n_ctx = 4096
+temperature = 1.2
+top_k = 50
+top_p = 0.92
+repeat_penalty = 1.1
+
+[character]
+name = "The Great Unknown"
+age = 27
+location = "All over the world"
+traits = ["empty"]
+motivation = [
+    "No one care"
+]
+
+[ipc]
+ipc_dir = "shared_ipc"
+ttl=60
+
+[prompt]
+few_shot_examples = '''
+Example:
+'''
+
+    """
+    config_file = tmp_path / "config.toml"
+    config_file.write_text(config)
+    return config_file
 
 def atomic_write_request(ipc_dir: Path, req_id: str, payload: bytes) -> None:
     """
@@ -45,10 +85,12 @@ def atomic_write_request(ipc_dir: Path, req_id: str, payload: bytes) -> None:
                 pass
 
 
-def test_concurrent_requests_consumed(tmp_path):
+def test_concurrent_requests_consumed(config_path, tmp_path):
+    settings = load_settings(config_path)
     ipc_dir = tmp_path / "ipc"
     ipc_dir.mkdir()
-    backend = FileIpcBackend(ipc_dir, ttl=60.0)
+    settings.ipc.ipc_dir = Path(ipc_dir)
+    backend = FileIpcBackend(settings)
     backend.init()
 
     count = 30
@@ -85,9 +127,11 @@ def test_concurrent_requests_consumed(tmp_path):
     assert not remaining_in, f"leftover request files: {remaining_in}"
 
 
-def test_stale_files_removed_on_init(tmp_path):
+def test_stale_files_removed_on_init(config_path, tmp_path):
+    settings = load_settings(config_path);
     ipc_dir = tmp_path / "ipc_stale"
     ipc_dir.mkdir()
+    settings.ipc.ipc_dir = Path(ipc_dir)
     old_req = ipc_dir / f"{IPC_IN_PREFIX}old{IPC_SUFFIX}"
     old_resp = ipc_dir / f"{IPC_OUT_PREFIX}old{IPC_SUFFIX}"
     old_req.write_bytes(b"x")
@@ -96,7 +140,7 @@ def test_stale_files_removed_on_init(tmp_path):
     os.utime(old_req, (old_time, old_time))
     os.utime(old_resp, (old_time, old_time))
 
-    backend = FileIpcBackend(ipc_dir, ttl=1.0)
+    backend = FileIpcBackend(settings)
     backend.init()
 
     # Allow cleanup to run
@@ -104,10 +148,12 @@ def test_stale_files_removed_on_init(tmp_path):
     assert not any(ipc_dir.iterdir()), f"expected cleanup removed files, found: {list(ipc_dir.iterdir())}"
 
 
-def test_write_response_permissions(tmp_path):
+def test_write_response_permissions(config_path, tmp_path):
+    settings = load_settings(config_path);
     ipc_dir = tmp_path / "ipc_perm"
     ipc_dir.mkdir()
-    backend = FileIpcBackend(ipc_dir, ttl=60.0)
+    settings.ipc.ipc_dir = Path(ipc_dir)
+    backend = FileIpcBackend(settings)
     backend.init()
 
     req_id = backend.gen_req_id()

@@ -7,9 +7,10 @@ Keeps caller independent of concrete backend type and centralized
 initialization paterns
 """
 
-from pathlib import Path
+import uuid
 from typing import Optional, Tuple, List
 
+from src.config.settings import Settings
 from .base import IpcBackend
 from .file_backend import FileIpcBackend
 
@@ -20,14 +21,13 @@ class IpcService:
         self._backend = backend
 
     @classmethod
-    def from_settings(cls, settings: object) -> "IpcService":
+    def from_settings(cls, settings: Settings) -> "IpcService":
         """
         Create a FileIpcBackend from a settings-like object that has `ipc_dir`
         path.
         Caller may provide any object with attribute `ipc_dir` (Path | str)
         """
-        ipc_dir = settings.ipc.ipc_dir
-        if ipc_dir is None:
+        if settings.ipc.ipc_dir is None:
             raise ValueError("settings must have `ipc_dir` path attribute")
         backend = FileIpcBackend(settings)
         backend.init()
@@ -45,7 +45,6 @@ class IpcService:
     def gen_req_id(self) -> str:
         # Concrete backend provides generator; use it if available, else fallback
         if hasattr(self._backend, "gen_req_id"):
-            return getattr(self._backend, "gen_req_id")()  # type: ignore[call-arg]
+            return str(getattr(self._backend, "gen_req_id")())
         # fallback
-        import uuid
         return uuid.uuid4().hex

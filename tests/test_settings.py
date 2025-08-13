@@ -34,6 +34,7 @@ motivation = [
 
 [ipc]
 ipc_dir = "shared_ipc"
+ttl=60
 
 [prompt]
 few_shot_examples = '''
@@ -75,7 +76,8 @@ def test_load_settings(config_path):
         "Really like to spread rumors.",
         "Gritty, sharp and funky humor"
     ]
-    assert settings.ipc_dir == Path("shared_ipc")
+    assert settings.ipc.ipc_dir == Path("shared_ipc")
+    assert settings.ipc.ttl == 60
     print(settings)
     assert settings.few_shot_examples.strip() == '''
 Example:
